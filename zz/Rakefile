@@ -22,14 +22,7 @@ def get_sample_names(substring)
 end
 
 samples = Hash[
-  "ttbar" => Array['TTplusJets_madgraph'],
-#  "ttw" => Array['TTWJets_8TeV'], 
-#   "ttz" => Array['TTZJets_8TeV'], 
-  "zjets" => Array['Zjets_M50'],
-  "diboson" => Array['ZZJetsTo4L_pythia', 'WZJetsTo3LNu_pythia', 'WWJetsTo2L2Nu_TuneZ2_8TeV'],
-#  "signal" => get_sample_names('BprimeBprimeToBZBZinc'),
-#    "signal" => get_sample_names('ZZJets'),
-  "signal" => Array['ZZ4E_powheg', 'ZZ4M_powheg', 'ZZ2E2M_powheg', 'ggZZ4L', 'ggZZ2L2L'],
+  "signal" => get_sample_names('ZZJets'),
   "all_bg" => Array['Zjets_M50', 'TTplusJets_madgraph', 'DYJetsToLL_M-10To50filter_8TeV-madgraph', 'GluGluToHToZZTo4L_M-125_8TeV-powheg-pythia6'] + get_sample_names('WZJets') + get_sample_names('WWJets'),
   "data_mm" => get_sample_names("data_DoubleMu"),
   "data_ee" => get_sample_names("data_DoubleElectron"),
