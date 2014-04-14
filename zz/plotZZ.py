@@ -62,7 +62,8 @@ class plotZZ(object):
 #        self.bkgNames = []
         self.setup_samples()
         self.ZZMassMinMaxStep = [64, 706, 6]
-        self.rebinArgs = [106, "", array('d', range(*self.ZZMassMinMaxStep))]  # Stupid bullshit hack. Fix.
+#        self.xAxisRange = [64, 6]
+        self.rebin = 5
 
     def get_files_lumis_names(self, samples, channel):
         '''Find and return unix style paths to root files and lumicalc sums'''
@@ -97,17 +98,20 @@ class plotZZ(object):
 
     def get_int_lumi(self):
         '''Find the total integrated luminosity of the dataset'''
-        intLumi = 0
+        intlumi = {}
         for channel in self.channel:
+            intlumi[channel] = 0
             for sample, data in self.samples[channel]['dat'].iteritems():
-                   intLumi += data['lumi']
+                intlumi[channel] += data['lumi']
 
-        if len(self.channel) == 3:
-            intLumi = intLumi/3. # 3 datasets used
-        elif self.channel[0] == "eemm":
-            intLumi = intLumi/3. # 3 datasets used
+        return max(intlumi.itervalues()) / 3.
 
-        return intLumi
+        # if len(self.channel) == 3:
+        #     intLumi = intLumi/3. # 3 datasets used
+        # elif self.channel[0] == "eemm":
+        #     intLumi = intLumi/3. # 3 datasets used
+        # 
+        # return intLumi
 
     def get_hist(self, tfile, folder, var, isMC=False, lumi=1.):    #, color):
         '''Return a histogram of var from folder in TFile(filename), scaled by luminosity'''
@@ -115,11 +119,10 @@ class plotZZ(object):
         hist = tfile.Get(folder + "/" + var).Clone("h")
         if isMC:
             hist.Scale(self.intLumi/lumi)        
-#        hist.Rebin(*self.rebinArgs)  # stupid bullshit hack -- fix
-        hist.GetXaxis().SetRangeUser(self.ZZMassMinMaxStep[0] + 2 * self.ZZMassMinMaxStep[2], self.ZZMassMinMaxStep[1] - 2 * self.ZZMassMinMaxStep[2])
-#         hist.SetFillColor(color)
-#         hist.SetLineColor(color)
-#         hist.SetMarkerColor(color)
+            
+        if self.rebin > 0:
+            hist.Rebin(self.rebin)
+            
         return hist
 
     def make_stack(self, bkg, sig):
@@ -186,7 +189,7 @@ class plotZZ(object):
                             self.hists['bkg'][name].append(h)
                         else:
                             self.hists[source].append(h)
-
+                            
 
     def construct_bkg_hists(self):
         sampleMap = {}
@@ -204,11 +207,81 @@ class plotZZ(object):
         dat.SetLineColor(ROOT.EColor.kBlack)
         return (mcStack, dat, bkg, sig)
 
+    def get_ratio(self, num, denom, label):
+        '''Return a ratio histogram'''
+        num.Sumw2()
+        num.SetMarkerSize(0.8)
+        num.Divide(num, denom, 1., 1., "")
+        return num
+
+    def draw_ratio_plot(self, data, mcStack, pad):
+        mchist = mcStack.GetStack().Last().Clone("mchist")
+        ratio = self.get_ratio(data,mchist,"ratio")
+        ratio.SetLineWidth(1)
+
+        ratiostaterr = self.get_ratio_stat_err(mchist)
+#         ratiostaterr.GetXaxis().SetTitle(xaxis)
+        ratiostaterr.GetXaxis().SetRangeUser(data.GetXaxis().GetXmin(),data.GetXaxis().GetXmin())
+        ratiounity = ROOT.TLine(data.GetXaxis().GetXmin(),1,data.GetXaxis().GetXmax(),1)
+        ratiounity.SetLineStyle(2)
+
+        pad.cd()
+        pad.Draw()
+        pad.SetGridy(0)
+        ratiostaterr.Draw("e2")
+        # ratiostaterr.Draw("e2 same")
+        ratiounity.Draw("same")
+        ratio.Draw("e1 same")
+        
+
+    def get_ratio_stat_err(self, hist):
+        '''Return a statistical error bars for a ratio plot'''
+        ratiostaterr = hist.Clone("ratiostaterr")
+        ratiostaterr.Sumw2()
+        ratiostaterr.SetStats(0)
+        ratiostaterr.SetTitle("")
+        ratiostaterr.GetYaxis().SetTitle("Data/MC")
+        ratiostaterr.SetMaximum(3.2)
+        ratiostaterr.SetMinimum(0)
+        ratiostaterr.SetMarkerSize(0)
+        ratiostaterr.SetFillColor(ROOT.EColor.kGray+3)
+        ratiostaterr.SetFillStyle(3013)
+        ratiostaterr.GetXaxis().SetLabelSize(0.12)
+        ratiostaterr.GetXaxis().SetTitleSize(0.14)
+        ratiostaterr.GetXaxis().SetTitleOffset(1.10)
+        ratiostaterr.GetYaxis().SetLabelSize(0.10)
+        ratiostaterr.GetYaxis().SetTitleSize(0.12)
+        ratiostaterr.GetYaxis().SetTitleOffset(0.3)
+        ratiostaterr.GetYaxis().SetNdivisions(505)
+
+        # bin by bin errors
+        for i in range(hist.GetNbinsX()+2):
+            ratiostaterr.SetBinContent(i, 1.0)
+            if hist.GetBinContent(i)>1e-6:  # not empty
+                binerror = hist.GetBinError(i) / hist.GetBinContent(i)
+                ratiostaterr.SetBinError(i, binerror)
+            else:
+                ratiostaterr.SetBinError(i, 999.)
+
+        return ratiostaterr
+
 
     def plot_save(self, title, xTitle, yTitle, outFile, printLumi=True):
         (mc,dat,bkg,sig) = self.make_final_hists()
 
         self.canvas.cd()
+ 
+        plotpad = ROOT.TPad("plotpad", "top pad"   , 0.0, 0.3, 1.0, 1.0)
+        plotpad.SetBottomMargin(0.0)
+        plotpad.Draw()
+        ratiopad = ROOT.TPad("ratiopad", "bottom pad", 0.0, 0.0, 1.0, 0.3)
+        ratiopad.SetTopMargin(0.0)
+        ratiopad.SetBottomMargin(0.35)
+        ratiopad.Draw()
+
+        plotpad.cd()
+
+        # Plot data + mc
         dat.SetTitle(title)
         dat.GetXaxis().SetTitle(xTitle)
         dat.GetYaxis().SetTitle(yTitle)
@@ -216,10 +289,39 @@ class plotZZ(object):
         mc.Draw("histsame")
         dat.Draw("esame")
 
+        # Draw Legend
         legend = self.make_legend(bkg, sig, dat)
         legend.Draw("same")
-        
+
+        ratiopad.SetGridy(0)
+        ratiopad.cd()
+
+        mchist = mc.GetStack().Last().Clone("mchist")
+        ratio = self.get_ratio(dat.Clone("ratio"),mc.GetStack().Last().Clone("mchist"),"ratio")
+        ratio.SetLineWidth(1)
+
+        ratiostaterr = self.get_ratio_stat_err(mc.GetStack().Last().Clone("mchist2"))
+#         ratiostaterr.GetXaxis().SetTitle(xaxis)
+        ratiostaterr.GetXaxis().SetRangeUser(dat.GetXaxis().GetXmin(),dat.GetXaxis().GetXmin())
+        ratiounity = ROOT.TLine(dat.GetXaxis().GetXmin(),1,dat.GetXaxis().GetXmax(),1)
+        ratiounity.SetLineStyle(2)
+
+        ratiopad.cd()
+        ratio.Draw("e1")
+        ratiounity.Draw("same")
+        ratiostaterr.Draw("e2same")
+        ratiostaterr.Draw("e2same")
+
+#        ratiopad.cd()
+#        ratiopad.SetGridy(0)
+#        ratiostaterr.Draw("e2")
+#        ratiostaterr.Draw("e2 same")
+#        ratiounity.Draw("same")
+#        if plotdata: ratio.Draw("e1 same")
+#        if plotsig: ratiosig.Draw("hist same")
+
         if printLumi:
+            self.canvas.cd()
             pave = ROOT.TPaveText(0.35,0.91,0.95,0.94,"NDC")
             pave.SetBorderSize(0)
             pave.SetFillColor(0)
