@@ -21,6 +21,7 @@ import os
 import pprint
 import itertools
 import baseSelections as selections
+import json
 
 class ZZAnalyzerBase(MegaBase):
     def __init__(self, tree, outfile, wrapper, channel, **kwargs):
@@ -28,11 +29,13 @@ class ZZAnalyzerBase(MegaBase):
         # Cython wrapper class must be passed
         self.tree = wrapper(tree)
         self.out = outfile
-        jobid = os.environ['jobid']
+        self.jobid = os.environ['jobid']
+        self.is7TeV = bool('7TeV' in self.jobid)
         self.histograms = {}
         self.channel = channel
         self.comboMap = {} # a dictionary to keep track of events that have been used
-                                # format: self.combinatorics[EventNumber]=(Z1 mass of best found so far, Z2 pt sum of best found so far)
+                           # format: self.combinatorics[EventNumber]=(Z1 mass of best found so far, Z2 pt sum of best found so far)
+        self.jsonfile = self.getJsonFileName()
         self.hfunc   = { #maps the name of non-trivial histograms to a function to get the proper value, the function MUST have two args (evt and weight). Used in fill_histos later
             'nTruePU' : lambda row, weight: (row.nTruePU,None),
             'weight'  : lambda row, weight: (weight,None) if weight is not None else (1.,None),
@@ -95,6 +98,46 @@ class ZZAnalyzerBase(MegaBase):
             folder = "/".join(selection)
             self.book_histos(folder)
 
+    def jsonToDict(self):
+        ''' Open (create) the used events file.'''
+        if not os.path.exists(self.jsonfile):
+            return self.generateJsonDict()
+        jsondata = open(self.jsonfile)
+        usedevents = json.load(jsondata)
+        jsondata.close()
+        return usedevents
+
+    def dictToJson(self,dict):
+        '''Write the dictionary to json'''
+        jsonout = open(self.jsonfile,'w')
+        json.dump(dict,jsonout)
+        jsonout.close()
+
+    def getJsonFileName(self):
+        '''Return the filename of the json file'''
+        [filedir, filename]  = os.path.split(os.environ['megatarget'])
+        runname = 'Run2011' if self.is7TeV else 'Run2012'
+        for letter in ['A','B','C','D']:
+            if runname+letter in filename: runname += letter
+        usedfilename = filedir+'/'+'data_'+runname+'.json'
+        return usedfilename
+
+    def generateJsonDict(self):
+        '''Generate the dictionary for the used events'''
+        dict = {}
+        dict["Signal"] = {}
+        dict["Control"] = {}
+        dict["Signal"]["Preselection"] = []
+#         for ossf in [2]: 
+#             for onZ in range(0,ossf+1):
+#                 for bjet in range(0,3):
+#                     dictkey = "OSSF%i_onZ%i_b%i" % (ossf, onZ, bjet)
+#                     dict["Signal"][dictkey] = []
+        for control in self.controls:
+            dict["Control"][control] = []
+        return dict
+
+
     def process(self):
         histos       = self.histograms
         preselection = self.preselection
@@ -102,21 +145,28 @@ class ZZAnalyzerBase(MegaBase):
         event_weight = self.event_weight
         channel      = self.channel
         
-        if len(self.objects) == 4:
+#        if len(self.objects) == 4:
             # Find the right version of each event to deal with combinatorics issues
-            for row in self.tree :
-                ossfs = selections.getOSSF(row,channel,*self.objects)
-                if len(ossfs) == 4 :
-                    mz1 = getattr(row, getVar2(ossfs[0], ossfs[1], 'Mass'))
-                    ptSum = getattr(row, getVar(ossfs[2], 'Pt')) + getattr(row,getVar(ossfs[3], 'Pt'))
-                    evNum = getattr(row, 'evt') 
-                    if evNum not in self.comboMap or (abs(91.1876 - self.comboMap[evNum][0]) > abs(91.1876 - mz1) and ptSum > self.comboMap[evNum][1]) :
-                        self.comboMap[evNum] = (mz1, ptSum)
+        for row in self.tree :
+            ossfs = selections.getOSSF(row,channel,*self.objects)
+            if len(ossfs) == 4 :
+                mz1 = getattr(row, getVar2(ossfs[0], ossfs[1], 'Mass'))
+                ptSum = getattr(row, getVar(ossfs[2], 'Pt')) + getattr(row,getVar(ossfs[3], 'Pt'))
+                evNum = getattr(row, 'evt') 
+                if evNum not in self.comboMap or (abs(91.1876 - self.comboMap[evNum][0]) > abs(91.1876 - mz1) and ptSum > self.comboMap[evNum][1]) :
+                    self.comboMap[evNum] = (mz1, ptSum)
 
         self.cut_flow_init()
+        usedEvents = self.jsonToDict()
         counter = 0
         for row in self.tree:
             self.cutmap["Initial"] += 1
+
+            event = row.evt
+            lumi = row.lumi
+            run = row.run
+            eventkey = [run, lumi, event]
+
             counter += 1
             self.ossf = selections.numberOSSF(row,channel)
             self.onZ = selections.numberOnZ(row,channel)
@@ -125,24 +175,40 @@ class ZZAnalyzerBase(MegaBase):
                 # fill all events
                 if key == "signal":
                     if preselection(row,"Signal"):
+                        # check if we already used this event
+                        if eventkey in usedEvents["Signal"]["Preselection"]: continue
+
                         self.cutmap["Signal"]["Preselection"]["Events"] += 1
                         fill_histos(histos, selection, row, event_weight(row))
+
+                        # mark event as used
+                        usedEvents["Signal"]["Preselection"].append(eventkey)
+
                     continue
                 # fill controls
                 foundControl = 0
                 for control in self.controls:
                     if key == control:
                         if preselection(row,key):
+                            # check if we already used this event
+                            if eventkey in usedEvents["Control"][control]: continue
+
                             self.cutmap["Control"][key]["Events"] += 1
                             fill_histos(histos, selection, row, event_weight(row))
+                            
+                            # add to list of used events
+                            usedEvents["Control"][control].append(eventkey)
+
                         foundControl = 1
                 if foundControl: continue
                 # select appropriate regions
-                ossf = key[0]
-                onZ = key[1]
-                if selections.numberOSSF(row,channel)!=int(ossf): continue
-                if selections.numberOnZ(row,channel)!=int(onZ):   continue
+#                 ossf = key[0]
+#                 onZ = key[1]
+#                 if selections.numberOSSF(row,channel)!=int(ossf): continue
+#                 if selections.numberOnZ(row,channel)!=int(onZ):   continue
                 fill_histos(histos, selection, row, event_weight(row))
+
+        self.dictToJson(usedEvents)
         self.output_cut_flow()
 
     def cut_flow_init(self):
@@ -259,7 +325,7 @@ class ZZAnalyzerBase(MegaBase):
         self.book(folder, 'Z1Mass', 'Z 1 Mass', 100, 0, 200)
         self.book_kin_histos(folder, 'Z2')
         self.book(folder, 'Z2Mass', 'Z 2 Mass', 100, 0, 200)
-        self.book(folder, 'Z1_Z2_Mass', 'M(4l)', 100, 0, 2000)
+        self.book(folder, 'Z1_Z2_Mass', 'M(4l)', 310, 70., 1000)
         self.book(folder, 'Z1_Z2_Scatter', 'Z1 v Z2', 100, 0, 200, 100, 0, 200, type=ROOT.TH2F)
 
 #     def book_bprime_histos(self, folder):
