@@ -11,7 +11,7 @@ import os
 import errno
 import glob
 import ROOT
-from array import array
+import array
 from dataStyles import data_styles
 
 #from dataStyles import data_styles
@@ -34,7 +34,7 @@ class plotZZ(object):
     '''A plotting class to be used in the FinalStateAnalysis Framework'''
     def __init__(self, channel):
         '''Initialize the ZZ Plotter'''
-        self.canvas = ROOT.TCanvas("c1","c1",700,700)
+        self.canvas = ROOT.TCanvas("c1","c1",700,950)
         ROOT.gStyle.SetOptStat(0)
         ROOT.gROOT.ForceStyle()
         # define samples, jobid, and channel
@@ -63,7 +63,9 @@ class plotZZ(object):
         self.setup_samples()
         self.ZZMassMinMaxStep = [64, 706, 6]
 #        self.xAxisRange = [64, 6]
-        self.rebin = 5
+        self.dumbRebin = False
+        self.rebin = True
+        self.newBins = array.array("d", range(70,295,15) + range(295, 505, 30) + [505, 650, 1000])
 
     def get_files_lumis_names(self, samples, channel):
         '''Find and return unix style paths to root files and lumicalc sums'''
@@ -116,13 +118,21 @@ class plotZZ(object):
     def get_hist(self, tfile, folder, var, isMC=False, lumi=1.):    #, color):
         '''Return a histogram of var from folder in TFile(filename), scaled by luminosity'''
 #         theFile = ROOT.TFile(filename)
+#         hist = ROOT.TH1F()
         hist = tfile.Get(folder + "/" + var).Clone("h")
+        self.baseBinSize = hist.GetBinWidth(0)
+        if self.rebin:
+            hist = hist.Rebin(len(self.newBins)-1,var+"_rebin", self.newBins)
+        elif self.dumbRebin:
+            hist.Rebin(5)
+
         if isMC:
             hist.Scale(self.intLumi/lumi)        
             
-        if self.rebin > 0:
-            hist.Rebin(self.rebin)
-            
+        for i in range(hist.GetNbinsX()+1):
+            hist.SetBinContent(i, hist.GetBinContent(i) * self.baseBinSize / hist.GetBinWidth(i))
+            hist.SetBinError(i, hist.GetBinError(i) * self.baseBinSize / hist.GetBinWidth(i))
+
         return hist
 
     def make_stack(self, bkg, sig):
@@ -160,7 +170,7 @@ class plotZZ(object):
         
         return output
 
-    def make_legend(self, bkgDict, sig, data, bounds=[0.33, 0.6, 0.9, 0.9]):
+    def make_legend(self, bkgDict, sig, data, bounds=[0.38, 0.5, 0.9, 0.8]):
         ''' 
         Makes a legend for background, signal, and data histograms, with boundaries in list bounds.
         bkgDict should be in the format {sample1Name: sample1Hist, sample2Name: sample2Hist ... }
@@ -245,7 +255,7 @@ class plotZZ(object):
         ratiostaterr.SetMinimum(0)
         ratiostaterr.SetMarkerSize(0)
         ratiostaterr.SetFillColor(ROOT.EColor.kGray+3)
-        ratiostaterr.SetFillStyle(3013)
+        ratiostaterr.SetFillStyle(0)
         ratiostaterr.GetXaxis().SetLabelSize(0.12)
         ratiostaterr.GetXaxis().SetTitleSize(0.14)
         ratiostaterr.GetXaxis().SetTitleOffset(1.10)
@@ -282,9 +292,12 @@ class plotZZ(object):
         plotpad.cd()
 
         # Plot data + mc
+#         if self.rebin:
+#             dat = dat.Rebin(len(self.newBins)-1, "dat_rebin", self.newBins)
+#             mc = mc.Rebin(len(self.newBins)-1, "mc_rebin", self.newBins)
         dat.SetTitle(title)
         dat.GetXaxis().SetTitle(xTitle)
-        dat.GetYaxis().SetTitle(yTitle)
+        dat.GetYaxis().SetTitle(yTitle + " / " + str(self.baseBinSize) + " GeV")
         dat.Draw("e")
         mc.Draw("histsame")
         dat.Draw("esame")
@@ -299,6 +312,14 @@ class plotZZ(object):
         mchist = mc.GetStack().Last().Clone("mchist")
         ratio = self.get_ratio(dat.Clone("ratio"),mc.GetStack().Last().Clone("mchist"),"ratio")
         ratio.SetLineWidth(1)
+        ratio.GetYaxis().SetTitle("Data/MC")
+        ratio.GetYaxis().SetTitleSize(0.10)
+        ratio.GetYaxis().SetTitleOffset(0.36)
+        ratio.GetYaxis().SetLabelSize(0.08)
+        ratio.GetXaxis().SetTitleSize(0.10)
+        ratio.GetXaxis().SetTitleOffset(1.0)
+        ratio.GetXaxis().SetLabelSize(0.10)
+        ratio.SetTitle("")
 
         ratiostaterr = self.get_ratio_stat_err(mc.GetStack().Last().Clone("mchist2"))
 #         ratiostaterr.GetXaxis().SetTitle(xaxis)
@@ -310,7 +331,7 @@ class plotZZ(object):
         ratio.Draw("e1")
         ratiounity.Draw("same")
         ratiostaterr.Draw("e2same")
-        ratiostaterr.Draw("e2same")
+#         ratiostaterr.Draw("e2same")
 
 #        ratiopad.cd()
 #        ratiopad.SetGridy(0)
@@ -322,7 +343,7 @@ class plotZZ(object):
 
         if printLumi:
             self.canvas.cd()
-            pave = ROOT.TPaveText(0.35,0.91,0.95,0.94,"NDC")
+            pave = ROOT.TPaveText(0.3,0.86,0.9,0.9,"NDC")
             pave.SetBorderSize(0)
             pave.SetFillColor(0)
             pave.AddText("CMS Preliminary   #sqrt{s} = 8 TeV   #int L dt = %.1f fb^{-1}" % (self.intLumi/1000))
