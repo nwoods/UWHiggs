@@ -51,8 +51,8 @@ class ZZAnalyzerEEEE(ZZAnalyzerBase.ZZAnalyzerBase):
 
     def preselection(self, row, key):
         if key == "Signal":
-            return selections.preselectionSignal(row, self.channel, self.cutmap, self.comboMap, self.objects)#'e1', 'e2', 'e3', 'e4')
-        return selections.preselectionControl(row, key, "eeee", self.cutmap, self.objects)#'e1','e2','e3','e4')
+            return selections.preselectionSignal(row, self.channel, self.cutmap, self.comboMap, self.objects, self.passList, self.passDict)
+        return selections.preselectionControl(row, key, "eeee", self.cutmap, self.objects)
 
     def event_weight(self, row):
         if row.run >2:

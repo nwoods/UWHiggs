@@ -18,13 +18,8 @@ source jobid.sh
 #then
 #	rm HZZ_passed.txt
 #fi
-#
-#if [ -e HZZ_all_official.txt ]
-#then
-#	rm HZZ_all_official.txt
-#fi
 
 export jobid=$jobid8
-rake analyzeZZ
+rake analyzeZZ_dataonly
 
 #bash combine.sh

@@ -13,6 +13,7 @@ import glob
 import ROOT
 import array
 from dataStyles import data_styles
+from math import *
 
 #from dataStyles import data_styles
 
@@ -65,7 +66,23 @@ class plotZZ(object):
 #        self.xAxisRange = [64, 6]
         self.dumbRebin = False
         self.rebin = True
-        self.newBins = array.array("d", range(70,295,15) + range(295, 505, 30) + [505, 650, 1000])
+        self.newBins = array.array("d", range(70,295,15) + range(295, 505, 30) + [505, 655, 1000])
+#         self.MCNames = {'DYJetsToLL_M-To50filter_8TeV-madgraph': 'Drell Yan', \
+#                             'Zjets_M50': 'Z + Jets',\
+#                             'WWJetsTo2L2Nu_TuneZ2_8TeV': 'WW',\
+#                             'WZJetsTo3LNu_pythia': 'WZ',\
+#                             'TTplusJets_madgraph': 'TTbar',\
+#                             'GluGluToHToZZTo4L_M-125_8TeV-powheg-pythia6' : 'H->ZZ',\
+#                             'ZZJetsTo4L_pythia':'ZZ'}
+        self.MCNames = {'DY': 'Drell Yan', \
+                            'Zj': 'Z + Jets',\
+                            'WW': 'WW',\
+                            'WZ': 'WZ',\
+                            'TT': 'TTbar',\
+                            'Gl' : 'H->ZZ',\
+                            'ZZ':'ZZ'}
+
+
 
     def get_files_lumis_names(self, samples, channel):
         '''Find and return unix style paths to root files and lumicalc sums'''
@@ -106,7 +123,10 @@ class plotZZ(object):
             for sample, data in self.samples[channel]['dat'].iteritems():
                 intlumi[channel] += data['lumi']
 
-        return max(intlumi.itervalues()) / 3.
+        if len(self.channel) == 3 or self.channel[0] == 'eemm':
+            return max(intlumi.itervalues()) / 3.
+        else:
+            return max(intlumi.itervalues()) / len(self.channel)*1.0
 
         # if len(self.channel) == 3:
         #     intLumi = intLumi/3. # 3 datasets used
@@ -120,11 +140,11 @@ class plotZZ(object):
 #         theFile = ROOT.TFile(filename)
 #         hist = ROOT.TH1F()
         hist = tfile.Get(folder + "/" + var).Clone("h")
-        self.baseBinSize = hist.GetBinWidth(0)
         if self.rebin:
             hist = hist.Rebin(len(self.newBins)-1,var+"_rebin", self.newBins)
         elif self.dumbRebin:
             hist.Rebin(5)
+        self.baseBinSize = hist.GetBinWidth(1)
 
         if isMC:
             hist.Scale(self.intLumi/lumi)        
@@ -140,7 +160,7 @@ class plotZZ(object):
         Makes a stack plot of background and signal histograms, with signal on top. 
         Expects single signal histogram, dictionary of bkg histograms in same format as make_legend
         '''
-        colors = [ROOT.EColor.kWhite, ROOT.EColor.kCyan, ROOT.EColor.kGreen, ROOT.EColor.kViolet, ROOT.EColor.kBlue, ROOT.EColor.kRed, ROOT.EColor.kOrange]
+        colors = [ROOT.EColor.kViolet, ROOT.EColor.kCyan, ROOT.EColor.kGreen, ROOT.EColor.kWhite, ROOT.EColor.kBlue, ROOT.EColor.kRed, ROOT.EColor.kOrange]
         colorCounter = 0
         stack = ROOT.THStack("stack", "Monte Carlo Signal + Background")
         for bname, bhist in bkg.iteritems():
@@ -179,27 +199,62 @@ class plotZZ(object):
         leg = ROOT.TLegend(*bounds)
         leg.SetFillColor(ROOT.EColor.kWhite)
         for bkgName, bkgHist in bkgDict.iteritems():
-            leg.AddEntry(bkgHist, bkgName, "F")
+            leg.AddEntry(bkgHist, self.MCNames[bkgName[0:2]], "F")
         leg.AddEntry(sig, "ZZ MC", "F")
         leg.AddEntry(data, "4l Inv Mass", "LPE")
-        leg.SetTextSize(0.02)
+        leg.SetTextSize(0.03)
         return leg
 
-    def make_all_hists(self, variable):       #, colors):
+    def make_all_hists(self, variable, printout=False):       #, colors):
 #         colorCounter = 0
+        table = {}
         folder = 'Signal/Preselection'
         for channel, samples in self.samples.iteritems():
+            if printout:
+                table[channel] = {'sig': 0, 'bkg': 0, 'dat': 0}
             for source, data in samples.iteritems():
                 for name, info in data.iteritems():
                     h = self.get_hist(info['tfile'], folder, variable, (source == 'bkg' or source == 'sig'), info['lumi'])
                     if type(h).__name__ != 'PyROOT_NoneType':
                         if source == 'bkg':
-                            if not name in self.hists['bkg']:
-                                self.hists['bkg'][name] = []
-                            self.hists['bkg'][name].append(h)
+                            if not name in self.hists[source]:
+                                self.hists[source][name] = []
+                            self.hists[source][name].append(h)
                         else:
                             self.hists[source].append(h)
-                            
+                        if printout:
+#                             numEvents = 0
+#                             if source == 'dat':
+#                                 numEvents = h.GetEntries()
+#                             else:
+#                                 numEvents = h.Integral()
+                            table[channel][source] += h.Integral("width")/self.baseBinSize #numEvents
+
+        # Print the table
+        if printout:
+            totalBkg = 0
+            totalSig = 0
+            totalExp = 0
+            totalDat = 0
+            for ch, dct in table.iteritems():
+                print ch + ":"
+                exp = dct['sig'] + dct['bkg']
+                totalBkg += dct['bkg']
+                totalSig += dct['sig']
+                totalExp += exp
+                totalDat += dct['dat']
+                print "    Signal: " + str(dct['sig'])
+                print "    Background: " + str(dct['bkg'])
+                print "    Total Expected: " + str(exp)
+                print "    Data: " + str(dct['dat'])
+            if len(self.channel) > 1:
+                print "Combined:"
+                print "    Signal: " + str(totalSig)
+                print "    Background: " + str(totalBkg)
+                print "    Total Expected: " + str(totalExp)
+                print "    Data: " + str(totalDat)
+            
+
 
     def construct_bkg_hists(self):
         sampleMap = {}
@@ -214,6 +269,7 @@ class plotZZ(object):
 
         mcStack = self.make_stack(bkg, sig)
         dat.SetMarkerColor(ROOT.EColor.kBlack)
+        dat.SetMarkerStyle(20)
         dat.SetLineColor(ROOT.EColor.kBlack)
         return (mcStack, dat, bkg, sig)
 
@@ -276,13 +332,15 @@ class plotZZ(object):
         return ratiostaterr
 
 
-    def plot_save(self, title, xTitle, yTitle, outFile, printLumi=True):
+    def plot_save(self, title, xTitle, yTitle, outFile, logy=False, printLumi=True):
         (mc,dat,bkg,sig) = self.make_final_hists()
 
         self.canvas.cd()
  
         plotpad = ROOT.TPad("plotpad", "top pad"   , 0.0, 0.3, 1.0, 1.0)
         plotpad.SetBottomMargin(0.0)
+        if logy:
+            plotpad.SetLogy()
         plotpad.Draw()
         ratiopad = ROOT.TPad("ratiopad", "bottom pad", 0.0, 0.0, 1.0, 0.3)
         ratiopad.SetTopMargin(0.0)
@@ -297,13 +355,13 @@ class plotZZ(object):
 #             mc = mc.Rebin(len(self.newBins)-1, "mc_rebin", self.newBins)
         dat.SetTitle(title)
         dat.GetXaxis().SetTitle(xTitle)
-        dat.GetYaxis().SetTitle(yTitle + " / " + str(self.baseBinSize) + " GeV")
+        dat.GetYaxis().SetTitle(yTitle + " / " + str(15) + " GeV")#self.baseBinSize) + " GeV")
         dat.Draw("e")
         mc.Draw("histsame")
         dat.Draw("esame")
 
         # Draw Legend
-        legend = self.make_legend(bkg, sig, dat)
+        legend = self.make_legend(bkg, sig, dat, [0.7, 0.4, 0.9, 0.8])
         legend.Draw("same")
 
         ratiopad.SetGridy(0)
@@ -359,5 +417,24 @@ class plotZZ(object):
 
 plotter = plotZZ("comb")
 plotter.setup_samples()
-plotter.make_all_hists('Z1_Z2_Mass')
-plotter.plot_save("ZZ Invariant Mass 8TeV", "Inv Mass (GeV)", "Events", "~nwoods/www/ZZMass.png")
+plotter.make_all_hists('Z1_Z2_Mass', True)
+plotter.plot_save("lll\'l\' Invariant Mass 8TeV", "Inv Mass (GeV)", "Events", "~nwoods/www/ZZMassSMPv2.png", False)
+plotter.plot_save("lll\'l\' Invariant Mass 8TeV", "Inv Mass (GeV)", "Events", "~nwoods/www/ZZMassSMPv2_logy.png", True)
+
+plottereeee = plotZZ("eeee")
+plottereeee.setup_samples()
+plottereeee.make_all_hists('Z1_Z2_Mass')
+plottereeee.plot_save("4e Invariant Mass 8TeV", "Inv Mass (GeV)", "Events", "~nwoods/www/ZZMassSMPv24e.png", False)
+plottereeee.plot_save("4e Invariant Mass 8TeV", "Inv Mass (GeV)", "Events", "~nwoods/www/ZZMassSMPv24e_logy.png", True)
+
+plottereemm = plotZZ("eemm")
+plottereemm.setup_samples()
+plottereemm.make_all_hists('Z1_Z2_Mass')
+plottereemm.plot_save("2e2mu Invariant Mass 8TeV", "Inv Mass (GeV)", "Events", "~nwoods/www/ZZMassSMPv22e2m.png", False)
+plottereemm.plot_save("2e2mu Invariant Mass 8TeV", "Inv Mass (GeV)", "Events", "~nwoods/www/ZZMassSMPv22e2m_logy.png", True)
+
+plottermmmm = plotZZ("mmmm")
+plottermmmm.setup_samples()
+plottermmmm.make_all_hists('Z1_Z2_Mass')
+plottermmmm.plot_save("4mu Invariant Mass 8TeV", "Inv Mass (GeV)", "Events", "~nwoods/www/ZZMassSMPv24m.png", False)
+plottermmmm.plot_save("4mu Invariant Mass 8TeV", "Inv Mass (GeV)", "Events", "~nwoods/www/ZZMassSMPv24m_logy.png", True)

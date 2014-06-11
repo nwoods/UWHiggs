@@ -30,8 +30,8 @@ class ZZAnalyzerEEMM(ZZAnalyzerBase.ZZAnalyzerBase):
 
     def preselection(self, row, key):
         if key == "Signal":
-            return selections.preselectionSignal(row, self.channel, self.cutmap,self.comboMap, self.objects)#self.objectmap, 'e1','e2','m1','m2') 
-        return selections.preselectionControl(row, key, "eemm", self.cutmap, self.objects)#self.objectmap,'e1','e2','m1','m2') 
+            return selections.preselectionSignal(row, self.channel, self.cutmap,self.comboMap, self.objects, self.passList, self.passDict)
+        return selections.preselectionControl(row, key, "eemm", self.cutmap, self.objects)
 
     def event_weight(self, row):
         if row.run >2: 

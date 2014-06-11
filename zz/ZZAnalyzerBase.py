@@ -28,6 +28,8 @@ class ZZAnalyzerBase(MegaBase):
         super(ZZAnalyzerBase, self).__init__(tree, outfile, **kwargs)
         # Cython wrapper class must be passed
         self.tree = wrapper(tree)
+        self.hzz_passfile = 'HZZ_passed.txt'
+        self.hzz_passed = []
         self.out = outfile
         self.jobid = os.environ['jobid']
         self.is7TeV = bool('7TeV' in self.jobid)
@@ -66,6 +68,300 @@ class ZZAnalyzerBase(MegaBase):
         self.hfunc['Z1_Z2_Scatter'] = lambda row, weight: (self.objectmap['Z1']['mass'], self.objectmap['Z2']['mass'])
 #        self.objects = []
 
+        self.passList = [2226124,\
+                             2780787,\
+                             3634214,\
+                             5379966,\
+                             9172701,\
+                             18955331,\
+                             26763019,\
+                             30975991,\
+                             32432249,\
+                             36559877,\
+                             37061827,\
+                             37968037,\
+                             38166085,\
+                             38426260,\
+                             41527702,\
+                             41830321,\
+                             43697222,\
+                             48304581,\
+                             49951784,\
+                             53125147,\
+                             53211301,\
+                             55134076,\
+                             58141565,\
+                             59123305,\
+                             67672479,\
+                             67917612,\
+                             70540430,\
+                             73285337,\
+                             76117998,\
+                             76732703,\
+                             78300349,\
+                             79591576,\
+                             80529749,\
+                             80889207,\
+                             82625945,\
+                             84544694,\
+                             85848214,\
+                             88111521,\
+                             93268337,\
+                             93572313,\
+                             95922345,\
+                             98100215,\
+                             103675675,\
+                             105011803,\
+                             107217493,\
+                             109881951,\
+                             112990898,\
+                             114003150,\
+                             114371709,\
+                             114538016,\
+                             115301904,\
+                             116169718,\
+                             117459264,\
+                             120536614,\
+                             121019123,\
+                             123988832,\
+                             128008670,\
+                             132410624,\
+                             132706940,\
+                             133641846,\
+                             134355928,\
+                             138519342,\
+                             139537140,\
+                             140486819,\
+                             141178966,\
+                             146471772,\
+                             147388276,\
+                             151083216,\
+                             152805866,\
+                             155730849,\
+                             155753218,\
+                             159726794,\
+                             167209826,\
+                             168130224,\
+                             168194676,\
+                             169100521,\
+                             174781164,\
+                             174957822,\
+                             176859852,\
+                             177095997,\
+                             177815904,\
+                             178044443,\
+                             178829388,\
+                             185135060,\
+                             190051995,\
+                             191382222,\
+                             194675981,\
+                             194955393,\
+                             196674650,\
+                             199183870,\
+                             201387532,\
+                             215099909,\
+                             217502611,\
+                             221918655,\
+                             225565614,\
+                             231762704,\
+                             232018566,\
+                             232250171,\
+                             233725391,\
+                             234207734,\
+                             235647099,\
+                             243501633,\
+                             244623214,\
+                             244791672,\
+                             245339434,\
+                             247836553,\
+                             252537006,\
+                             259508756,\
+                             263194986,\
+                             276785714,\
+                             279759749,\
+                             290344628,\
+                             291820678,\
+                             293533566,\
+                             295324467,\
+                             301478208,\
+                             306664497,\
+                             306811048,\
+                             309219190,\
+                             312032921,\
+                             318322030,\
+                             319813054,\
+                             322510503,\
+                             323790844,\
+                             327118504,\
+                             330091192,\
+                             331257910,\
+                             331969560,\
+                             333246186,\
+                             335391276,\
+                             338722570,\
+                             340486709,\
+                             340900299,\
+                             345644314,\
+                             346074761,\
+                             350555096,\
+                             352383455,\
+                             353162207,\
+                             356427819,\
+                             356725032,\
+                             359837986,\
+                             363484809,\
+                             363949741,\
+                             368602597,\
+                             372667387,\
+                             372893489,\
+                             384016969,\
+                             388474764,\
+                             389766970,\
+                             389977932,\
+                             393582426,\
+                             394007716,\
+                             395759900,\
+                             396825385,\
+                             400957190,\
+                             401042600,\
+                             401484983,\
+                             402443918,\
+                             402600389,\
+                             402678830,\
+                             407076966,\
+                             412076062,\
+                             415865014,\
+                             420041037,\
+                             426559109,\
+                             440202539,\
+                             446438292,\
+                             448152127,\
+                             450362044,\
+                             455057868,\
+                             469467267,\
+                             472815275,\
+                             477289466,\
+                             477862388,\
+                             481791479,\
+                             483168057,\
+                             487671954,\
+                             502821363,\
+                             504370493,\
+                             513078030,\
+                             519019963,\
+                             519488427,\
+                             520953305,\
+                             530312812,\
+                             539665282,\
+                             546604424,\
+                             547514345,\
+                             553270298,\
+                             559670208,\
+                             563981267,\
+                             565245444,\
+                             567117841,\
+                             573405437,\
+                             575302642,\
+                             599229718,\
+                             607057396,\
+                             609157237,\
+                             616574429,\
+                             617265349,\
+                             617795227,\
+                             622426000,\
+                             626206528,\
+                             630169854,\
+                             630809308,\
+                             630954116,\
+                             637834076,\
+                             646351604,\
+                             660605607,\
+                             673638714,\
+                             685265684,\
+                             687711552,\
+                             703712657,\
+                             708573825,\
+                             714036395,\
+                             719208626,\
+                             723782287,\
+                             739864564,\
+                             742912724,\
+                             758109065,\
+                             760006400,\
+                             769186804,\
+                             770334833,\
+                             779714361,\
+                             792210029,\
+                             793110394,\
+                             794370838,\
+                             802036099,\
+                             809605982,\
+                             813802208,\
+                             818802354,\
+                             836690441,\
+                             845122892,\
+                             854616700,\
+                             863682922,\
+                             865434697,\
+                             865695065,\
+                             873005082,\
+                             873201612,\
+                             876208309,\
+                             883384151,\
+                             933835054,\
+                             947734353,\
+                             955425019,\
+                             963906726,\
+                             970333313,\
+                             970724930,\
+                             971857351,\
+                             979037526,\
+                             990710339,\
+                             991082101,\
+                             1003127634,\
+                             1021783875,\
+                             1022410825,\
+                             1023081043,\
+                             1023292406,\
+                             1037471026,\
+                             1053831791,\
+                             1066576272,\
+                             1069824602,\
+                             1072952721,\
+                             1087639087,\
+                             1089558842,\
+                             1097456291,\
+                             1103535297,\
+                             1134909166,\
+                             1154853710,\
+                             1181788896,\
+                             1210674923,\
+                             1233293430,\
+                             1238510739,\
+                             1248257881,\
+                             1259337833,\
+                             1269360116,\
+                             1278946974,\
+                             1294338754,\
+                             1315227994,\
+                             1344760175,\
+                             1347277781,\
+                             1394353502,\
+                             1409704558,\
+                             1464344864,\
+                             1511453808,\
+                             1530537922,\
+                             1580150704,\
+                             1621079578,\
+                             1730707882,\
+                             1745216870,\
+                             1820521419,\
+                             2073195431]
+
+
+        self.passDict = {}
+        self.HZZPassFile = 'HZZ_all_official.txt'
+
     def build_zz_folder_structure(self):
         '''Builds a folder structure for the bprime histograms:
            /
@@ -100,6 +396,10 @@ class ZZAnalyzerBase(MegaBase):
 
     def jsonToDict(self):
         ''' Open (create) the used events file.'''
+        # only needed for 2e2mu channel, because this is the only one that will have repeats
+        if self.channel != 'eemm':
+            return self.generateJsonDict()
+
         if not os.path.exists(self.jsonfile):
             return self.generateJsonDict()
         jsondata = open(self.jsonfile)
@@ -109,12 +409,18 @@ class ZZAnalyzerBase(MegaBase):
 
     def dictToJson(self,dict):
         '''Write the dictionary to json'''
-        jsonout = open(self.jsonfile,'w')
-        json.dump(dict,jsonout)
-        jsonout.close()
+        if self.channel == 'eemm': # this is only necessary for 2e2mu
+            jsonout = open(self.jsonfile,'w')
+            json.dump(dict,jsonout)
+            jsonout.close()
 
     def getJsonFileName(self):
         '''Return the filename of the json file'''
+        
+        # Only necessary for 2e2mu
+        if self.channel != 'eemm':
+            return ''
+
         [filedir, filename]  = os.path.split(os.environ['megatarget'])
         runname = 'Run2011' if self.is7TeV else 'Run2012'
         for letter in ['A','B','C','D']:
@@ -160,6 +466,8 @@ class ZZAnalyzerBase(MegaBase):
         usedEvents = self.jsonToDict()
         counter = 0
         for row in self.tree:
+            if self.cutmap["Initial"] % 5000 == 0:
+                print("Processing record " + str(self.cutmap["Initial"]) + "\n")
             self.cutmap["Initial"] += 1
 
             event = row.evt
@@ -184,6 +492,19 @@ class ZZAnalyzerBase(MegaBase):
                         # mark event as used
                         usedEvents["Signal"]["Preselection"].append(eventkey)
 
+                        ossfs = selections.getOSSF(row,channel,*self.objects)
+                        # If this event should be in my skim of the official Higgs events, store it for later printing
+                        m4l = getattr(row, 'Mass')
+                        mz1 = getattr(row, getVar2(ossfs[0], ossfs[1], 'Mass'))
+                        mz2 = getattr(row, getVar2(ossfs[2], ossfs[3], 'Mass'))
+                      
+                        if m4l > 100 and m4l < 1000 and mz1 > 60 and mz1 < 120 and mz2 > 60 and mz2 < 120:
+                            pt4l = 0
+                            for lept in self.objects:
+                                pt4l += getattr(row, getVar(lept, 'Pt'))
+                            self.hzz_passed.append([('event', getattr(row,'evt')), ('m4l', m4l), ('mz1', mz1), ('mz2', mz2), ('pt4l', pt4l)])
+
+
                     continue
                 # fill controls
                 foundControl = 0
@@ -207,6 +528,7 @@ class ZZAnalyzerBase(MegaBase):
 #                 if selections.numberOSSF(row,channel)!=int(ossf): continue
 #                 if selections.numberOnZ(row,channel)!=int(onZ):   continue
                 fill_histos(histos, selection, row, event_weight(row))
+
 
         self.dictToJson(usedEvents)
         self.output_cut_flow()
@@ -467,6 +789,29 @@ class ZZAnalyzerBase(MegaBase):
 
     def finish(self):
         self.write_histos()
+        self.printHZZEvents()
+
+    def printHZZEvents(self):
+        print 'started printer'
+        with open(self.hzz_passfile,'a') as fout:
+            # sort by event number
+            self.hzz_passed.sort(key=lambda d: d[0][1])
+
+            for ev in self.hzz_passed:
+                line = ''
+                for (key,val) in ev:
+                    line = line + key + " : " + str(val) + "   |   "
+
+                line = line + "\n"
+                fout.write(line)
+
+        with open(self.HZZPassFile, 'a') as fout2:
+            for ev, textList in self.passDict.iteritems():
+                for text in textList:
+                    fout2.write(text)
+
+        print 'done with printer'
+
 
 def getVar(name, var):
     return name+var

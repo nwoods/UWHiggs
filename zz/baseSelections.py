@@ -1,5 +1,5 @@
 '''
-Common selections for Bprime Analysis
+Common selections for SMP ZZ Analysis
 '''
 
 import os
@@ -22,7 +22,7 @@ def getVar2(name1, name2, var):
 
 # Check to make sure this is modified correctly. Was 0.1 instead of 0.5
 def overlap(row,*args):
-    return any( map( lambda x: x < 0.5, [getattr(row,'%s_%s_DR' % (l1,l2) ) for l1 in args for l2 in args if l1 <> l2 and hasattr(row,'%s_%s_DR' % (l1,l2) )] ) )
+    return any( map( lambda x: x < 0.1, [getattr(row,'%s_%s_DR' % (l1,l2) ) for l1 in args for l2 in args if l1 <> l2 and hasattr(row,'%s_%s_DR' % (l1,l2) )] ) )
 
 def muLooseIso(row, name):
     return getattr(row, getVar(name,'RelPFIsoDB'))<0.4 # Cut used in H4l analysis
@@ -73,12 +73,17 @@ def leptonIso(row, *objects):
 def muSelection(row, name):
     if getattr(row, getVar(name,'Pt'))<5:           return False
     if getattr(row, getVar(name,'AbsEta'))>2.4:      return False
+    if abs(getattr(row,getVar(name,'PVDXY'))) > 0.5: return False
+    if abs(getattr(row,getVar(name,'PVDZ'))) > 1.0: return False
     if abs(getattr(row, getVar(name,'IP3DS')))>4.:     return False
     #if not muLooseIso(row, name):                    return False
     return muIDTight(row,name)
 
 def muIDTight(row, name):
-    return bool(getattr(row, getVar(name,'PFIDTight')))
+    isGlobal = getattr(row,getVar(name, 'IsGlobal'))
+    isTracker = getattr(row, getVar(name, 'IsTracker'))
+    return (isGlobal or isTracker)
+#    return bool(getattr(row, getVar(name,'PFIDTight')))
 
 def muIDLoose(row, name):
     return bool(getattr(row, getVar(name,'PFIDTight'))) # Placeholder -- fix
@@ -87,11 +92,27 @@ def eSelection(row, name):
     if getattr(row, getVar(name,'Pt')) < 7:         return False
     if getattr(row, getVar(name,'AbsEta')) > 2.5:    return False
     if abs(getattr(row, getVar(name,'IP3DS'))) > 4:   return False
+    if abs(getattr(row,getVar(name,'PVDXY'))) > 0.5: return False
+    if abs(getattr(row,getVar(name,'PVDZ'))) > 1.0: return False
+    if abs(getattr(row, getVar(name,'IP3DS')))>4.:     return False
     #if not eLooseIso(row, name):                     return False
     return eIDTight(row,name)
 
 def eIDTight(row, name):
-    return bool(getattr(row, getVar(name,'MVAIDH2TauWP')))
+    ''' Tight electron ID from AN2012-141 '''
+    eta = getattr(row, getVar(name, 'Eta'))
+    pt = getattr(row, getVar(name, 'Pt'))
+    bdt = getattr(row, getVar(name, 'MVANonTrig'))
+    if pt > 7. and pt < 10.:
+        if abs(eta)<0.8 and bdt>0.47: return True
+        if abs(eta)>0.8 and abs(eta)<1.479 and bdt>0.004: return True
+        if abs(eta)>1.479 and bdt>0.295: return True
+    if pt > 10.:
+        if abs(eta)<0.8 and bdt>-0.34: return True
+        if abs(eta)>0.8 and abs(eta)<1.479 and bdt>-0.65: return True
+        if abs(eta)>1.479 and bdt>0.6: return True
+    return False
+#    return bool(getattr(row, getVar(name,'MVAIDH2TauWP')))
 
 def eIDLoose(row, name):
     return bool(getattr(row, getVar(name,'MVAIDH2TauWP'))) # Placeholder -- fix
@@ -125,7 +146,7 @@ def objSelection(row,obj):
 def objSelectionLoose(row, obj):
     return objSelection(row,obj)
 
-def preselectionSignal(row, channel, cutmap, comboMap, objects):
+def preselectionSignal(row, channel, cutmap, comboMap, objects, passList, passDict):
     # setup dictionary
     if not cutmap["Signal"].has_key("Preselection"):
         cutmap["Signal"]["Preselection"] = {}
@@ -133,6 +154,7 @@ def preselectionSignal(row, channel, cutmap, comboMap, objects):
         cutmap["Signal"]["Preselection"]["Trigger"]             = 0
         cutmap["Signal"]["Preselection"]["ID4l"]                = 0
         cutmap["Signal"]["Preselection"]["OSSF2"]               = 0
+        cutmap["Signal"]["Preselection"]["Combinatorics"]       = 0
         cutmap["Signal"]["Preselection"]["Overlap"]             = 0
         cutmap["Signal"]["Preselection"]["Isolation"]           = 0
         cutmap["Signal"]["Preselection"]["Z1Mass"]              = 0
@@ -141,40 +163,64 @@ def preselectionSignal(row, channel, cutmap, comboMap, objects):
         cutmap["Signal"]["Preselection"]["LeptonPt10"]          = 0
         cutmap["Signal"]["Preselection"]["LeptonPairMass"]      = 0
         cutmap["Signal"]["Preselection"]["InvariantMass4l"]     = 0
-        cutmap["Signal"]["Preselection"]["Combinatorics"]       = 0
+
+    event = getattr(row, 'evt')
+    evPass = event in passList
+
+    if evPass:
+        passDict[event] = ["\nEVENT " + str(event) + " :", all_object_info(row,channel,objects)]
 
     cutmap["Signal"]["Preselection"]["Events"] += 1
     # apply lepton cuts
-    if not (doubleElectronTrigger(row) or doubleMuonTrigger(row) or eMuTrigger(row)): return False
+    if not (doubleElectronTrigger(row) or doubleMuonTrigger(row) or eMuTrigger(row)): 
+        if evPass: passDict[event].append(cut_info(row, channel, objects, "Trigger"))
+        return False
     cutmap["Signal"]["Preselection"]["Trigger"] += 1
     leptonCounter = 0
     for obj in objects[0:4]:
-        if not objSelection(row, obj): return False
+        if not objSelection(row, obj): 
+            if evPass: passDict[event].append(cut_info(row, channel, objects, "ID4l"))
+            return False
         leptonCounter += 1
-    if leptonCounter < 4: return False
+    if leptonCounter < 4: 
+        if evPass: passDict[event].append(cut_info(row, channel, objects, "ID4L"))
+        return False
     cutmap["Signal"]["Preselection"]["ID4l"] += 1
-    if overlap(row, *objects): return False
+    if overlap(row, *objects): 
+        if evPass: passDict[event].append(cut_info(row, channel, objects, "Overlap"))
+        return False
     cutmap["Signal"]["Preselection"]["Overlap"] += 1
     # OSSF2 selection
-    if numberOSSF(row,channel)<2: return False
+    if numberOSSF(row,channel)<2: 
+        if evPass: passDict[event].append(cut_info(row, channel, objects, "OSSF2"))
+        return False
     cutmap["Signal"]["Preselection"]["OSSF2"] += 1
-    # lepton isolation
-    if not leptonIso(row, *objects[0:4]): return False
-    cutmap["Signal"]["Preselection"]["Isolation"] += 1
 
     # Make sure this is the correct combinatorical version of this event
     ossfs = getOSSF(row, channel, *objects[0:4])
     mz1 = getattr(row, getVar2(ossfs[0], ossfs[1], 'Mass'))
     sumPt = getattr(row, getVar(ossfs[2], 'Pt')) + getattr(row, getVar(ossfs[3], 'Pt'))
     evNum = getattr(row, 'evt')
-    if mz1 != comboMap[evNum][0] or sumPt != comboMap[evNum][1]: return False
+    if mz1 != comboMap[evNum][0] or sumPt != comboMap[evNum][1]: 
+        if evPass: passDict[event].append(cut_info(row, channel, objects, "Combo"))
+        return False
     cutmap["Signal"]["Preselection"]["Combinatorics"] += 1
 
+    # lepton isolation
+    if not leptonIso(row, *objects[0:4]): 
+        if evPass: passDict[event].append(cut_info(row, channel, objects, "Isolation"))
+        return False
+    cutmap["Signal"]["Preselection"]["Isolation"] += 1
+
     # apply Z cuts
-    if mz1 < 40 or mz1 > 120: return False
+    if mz1 < 60 or mz1 > 120: # 40 and 120 for H->ZZ->4l analysis
+        if evPass: passDict[event].append(cut_info(row, channel, objects, "Z1Mass"))
+        return False
     cutmap["Signal"]["Preselection"]["Z1Mass"] += 1
     mz2 = getattr(row, getVar2(ossfs[2], ossfs[3], 'Mass'))
-    if mz2 < 12 or mz1 > 120: return False
+    if mz2 < 60 or mz1 > 120: # 12 and 120 for H->ZZ->4l analysis
+        if evPass: passDict[event].append(cut_info(row, channel, objects, "Z2Mass"))
+        return False
     cutmap["Signal"]["Preselection"]["Z2Mass"] += 1
     
     # ensure some opposite-sign pair has m > 4 GeV (don't have to have same flavor)
@@ -183,20 +229,29 @@ def preselectionSignal(row, channel, cutmap, comboMap, objects):
         if getattr(row, getVar2(pair[0],pair[1],'Mass')) > 4 and not getattr(row, getVar2(pair[0],pair[1], 'SS')):
             found4GeVPair = True
             break
-    if not found4GeVPair: return False
+    if not found4GeVPair: 
+        if evPass: passDict[event].append(cut_info(row, channel, objects, "LeptonPairMass"))
+        return False
     cutmap["Signal"]["Preselection"]["LeptonPairMass"] += 1
 
     # Make sure at least one lepton has pt > 20 and one more has pt > 10
     pts = leptonPts(row, *objects[0:4])
-    if pts[0] < 20: return False
+    if pts[0] < 20: 
+        if evPass: passDict[event].append(cut_info(row, channel, objects, "LeptonPt20"))
+        return False
     cutmap["Signal"]["Preselection"]["LeptonPt20"] += 1
-    if pts[1] < 10: return False
+    if pts[1] < 10: 
+        if evPass: passDict[event].append(cut_info(row, channel, objects, "LeptonPt10"))
+        return False
     cutmap["Signal"]["Preselection"]["LeptonPt10"] += 1
     
-    # Make sure 4l mass > 100
-    if getattr(row, 'Mass') < 100: return False
-    cutmap["Signal"]["Preselection"]["InvariantMass4l"] += 1
+    # Make sure 4l mass > 100     H->ZZ->4l analysis only
+#     if getattr(row, 'Mass') < 100: 
+#         if evPass: passDict[event].append(cut_info(row, channel, objects, "InvariantMass4l"))
+#         return False
+#     cutmap["Signal"]["Preselection"]["InvariantMass4l"] += 1
 
+    if evPass: passDict[event].append(cut_info(row, channel, objects, "BOOM"))
     return True
 
 def preselectionControl(row, key, channel, cutmap, objects): #comboMap, *objects):
@@ -366,26 +421,44 @@ def leptonPts(row, *objects):
     pts.reverse()
     return pts
 
-### put something like the following into the analyzer process method:
-# 
-# for row in self.tree :
-#     ossfs = selections.getOSSF(row,channel,self.objects[0:4])
-#     if len(ossfs) == 4) :
-#         mz1 = getattr(row, getVar2(ossfs[0], ossfs[1], 'Mass'))
-#         mz2 = getattr(row, getVar2(ossfs[2], ossfs[3], 'Mass'))
-#         ptSum = getAttr(row, getVar(ossfs[2], 'Pt')) + getAttr(row,getVar(ossfs[3], 'Pt'))
-#         evNum = getattr(row, 'evt') 
-#         if evNum not in comboMap or (abs(91.1876 - comboMap[evNum][0]) > abs(91.1876 - mz1) and ptSum > comboMap[evNum][1]) :
-#             comboMap[evNum] = mz1, sumPt
-#         
-#         
-#         
-#         
-#         
-#         
-#         
-#         
-#         
-#         
-#         
+def all_object_info(row,channel,objects):
+    ''' Return string with lots of useful event info'''
+    objSorted = getOSSF(row,channel,*objects[0:4])
+    if len(objSorted) != 4:
+        objSorted = objects[0:4]
+    outString = ''
+    for obj in objSorted:
+        outString = outString + '\n      ' + obj + ":   pt: " + str(getattr(row, getVar(obj,'Pt'))) + "  eta: " + str(getattr(row,getVar(obj, 'Eta'))) + \
+            '  phi: ' + str(getattr(row,getVar(obj, 'Phi'))) 
+    
+    return outString
 
+def cut_info(row, channel, objects, cutName):
+    if cutName == 'BOOM':
+        return '\n      BOOM'
+    outString = '\n      CUT: ' + cutName
+    objSorted = getOSSF(row, channel, *objects)
+
+    if cutName == 'ID4l':
+        for obj in objSorted:
+            outString = outString + '\n          ' + obj + ':   SIP3D: ' + str(getattr(row,getVar(obj, 'IP3DS'))) + \
+                '   IPXY: ' + str(getattr(row, getVar(obj, 'PVDXY'))) + '   IPZ: ' + str(getattr(row, getVar(obj, 'PVDZ'))) + '   ID: '
+            if obj[0] == 'e':
+                outString = outString + str(getattr(row, getVar(obj, 'MVAIDH2TauWP')))
+            if obj[0] == 'm':
+                outString = outString + str(getattr(row, getVar(obj, 'PFIDTight')))
+                
+    if cutName == 'Isolation':
+        for obj in objSorted:
+            outString = outString + '\n          ' + obj + ':   Iso: ' + str(getattr(row,getVar(obj, 'RelPFIsoDB')))
+                
+        
+    if cutName == 'OSSF2':
+        for obj in objects:
+            outString = outString + '\n          ' + obj + ':   Charge: ' + str(getattr(row,getVar(obj,'Charge')))
+
+    if cutName == 'Z1Mass' or cutName == 'Z2Mass':
+        outString = outString + '\n          ' + 'Z1Mass: ' + str(getattr(row, getVar2(objSorted[0], objSorted[1], 'Mass'))) +\
+            '   Z2Mass: ' + str(getattr(row, getVar2(objSorted[2], objSorted[3], 'Mass')))
+
+    return outString

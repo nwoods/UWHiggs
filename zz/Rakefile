@@ -70,10 +70,17 @@ task :eeee => get_analyzer_results("ZZAnalyzerEEEE.py", samples['all_bg'] + samp
 # task :eem => get_analyzer_results("ZZAnalyzerEEM.py", samples['all_bg'] + samples['signal'] + samples['data_ee'])
 # task :mme => get_analyzer_results("ZZAnalyzerMME.py", samples['all_bg'] + samples['signal'] + samples['data_ee'])
 # task :mmm => get_analyzer_results("ZZAnalyzerMMM.py", samples['all_bg'] + samples['signal'] + samples['data_ee'])
+task :mmmm_dataonly => get_analyzer_results("ZZAnalyzerMMMM.py", samples['data_mm'])
+task :eemm_dataonly => get_analyzer_results("ZZAnalyzerEEMM.py", samples['data_mm'] + samples['data_ee'])
+task :eeee_dataonly => get_analyzer_results("ZZAnalyzerEEEE.py", samples['data_ee'])
+
 
 # Do the analysis
 #multitask :analyzeZZ => [:mmmm, :eemm, :eeee, :mmm, :mme, :eem, :eee] do
 #task :analyzeZZ => [:mmm, :eem, :eee, :mme, :mmmm, :eemm, :eeee] do
 task :analyzeZZ => [:mmmm, :eemm, :eeee] do #, :eee, :eem, :mme, :mmm] do
   puts "called analyzeZZ task from local rakefile"
+end
+task :analyzeZZ_dataonly => [:mmmm_dataonly, :eemm_dataonly, :eeee_dataonly] do
+  puts "called analyzeZZ task from local rakefile on data only"
 end

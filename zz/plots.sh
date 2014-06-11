@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run all of the analysis
+# plot ZZ mass spectrum
 
 set -o nounset
 set -o errexit
