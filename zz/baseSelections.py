@@ -193,13 +193,13 @@ def preselectionSignal(row, channel, cutmap, comboMap, objects, passList, passDi
         return False
     cutmap["Signal"]["Preselection"]["Overlap"] += 1
     # OSSF2 selection
-    if numberOSSF(row,channel)<2: 
+    ossfs = getOSSF(row, channel, *objects)    
+    if len(ossfs) < 4: 
         if evPass: passDict[event].append(cut_info(row, channel, objects, "OSSF2"))
         return False
     cutmap["Signal"]["Preselection"]["OSSF2"] += 1
 
     # Make sure this is the correct combinatorical version of this event
-    ossfs = getOSSF(row, channel, *objects)
     mz1 = getattr(row, getVar2(ossfs[0], ossfs[1], 'Mass'))
     sumPt = getattr(row, getVar(ossfs[2], 'Pt')) + getattr(row, getVar(ossfs[3], 'Pt'))
     evNum = getattr(row, 'evt')
