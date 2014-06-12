@@ -168,7 +168,9 @@ def preselectionSignal(row, channel, cutmap, comboMap, objects, passList, passDi
     evPass = event in passList
 
     if evPass:
-        passDict[event] = ["\nEVENT " + str(event) + " :", all_object_info(row,channel,objects)]
+        if event not in passDict:
+            passDict[event] = [] # add to blank rather than rewriting due to multiple appearances of some events
+        passDict[event] += (["\nEVENT " + str(event) + " :", all_object_info(row,channel,objects)])
 
     cutmap["Signal"]["Preselection"]["Events"] += 1
     # apply lepton cuts
@@ -197,12 +199,13 @@ def preselectionSignal(row, channel, cutmap, comboMap, objects, passList, passDi
     cutmap["Signal"]["Preselection"]["OSSF2"] += 1
 
     # Make sure this is the correct combinatorical version of this event
-    ossfs = getOSSF(row, channel, *objects[0:4])
+    ossfs = getOSSF(row, channel, *objects)
     mz1 = getattr(row, getVar2(ossfs[0], ossfs[1], 'Mass'))
     sumPt = getattr(row, getVar(ossfs[2], 'Pt')) + getattr(row, getVar(ossfs[3], 'Pt'))
     evNum = getattr(row, 'evt')
     if mz1 != comboMap[evNum][0] or sumPt != comboMap[evNum][1]: 
-        if evPass: passDict[event].append(cut_info(row, channel, objects, "Combo"))
+        if evPass: passDict[event].append(cut_info(row, channel, objects, "Combo", \
+                                                       (comboMap[evNum][0], comboMap[evNum][1], mz1, sumPt)))
         return False
     cutmap["Signal"]["Preselection"]["Combinatorics"] += 1
 
@@ -361,15 +364,15 @@ def selectLeptons(row, key, channel, *objects):
 
 def getOSSF(row, channel, *objects):
     '''Will return a list of leptons in OSSF pairs in order of closest to Z mass'''
+    zmass = 91.1876
     OSSFPairs = []
     # will use the knowledge that in eeee and mmmm, the first 2 are the best Z
-    # this way we can avoid combinatorics (might generalize later)
     if OSSF(row, objects[0], objects[1]): OSSFPairs.extend([objects[0],objects[1]])
     if OSSF(row, objects[2], objects[3]): OSSFPairs.extend([objects[2],objects[3]])
     if len(OSSFPairs)==4:
         mass0 = getattr(row, getVar2(OSSFPairs[0],OSSFPairs[1],'Mass'))
         mass1 = getattr(row, getVar2(OSSFPairs[2],OSSFPairs[3],'Mass'))
-        if abs(mass0-90)>abs(mass1-90): 
+        if abs(mass0-zmass)>abs(mass1-zmass): 
             OSSFPairs = [OSSFPairs[2], OSSFPairs[3], OSSFPairs[0], OSSFPairs[1]]
     return OSSFPairs
 
@@ -433,7 +436,12 @@ def all_object_info(row,channel,objects):
     
     return outString
 
-def cut_info(row, channel, objects, cutName):
+def cut_info(row, channel, objects, cutName, comboTuple=(0.,0.,0.,0.)):
+    ''' 
+    Give a string with useful information about why the event was cut, for debugging purposes.
+    comboTuple, used only if the event is removed by the combinatorics cut, should be in the format
+              (correct mZ1, correct sumPt, this event's mZ1, this event's sumPt)
+    '''
     if cutName == 'BOOM':
         return '\n      BOOM'
     outString = '\n      CUT: ' + cutName
@@ -460,5 +468,10 @@ def cut_info(row, channel, objects, cutName):
     if cutName == 'Z1Mass' or cutName == 'Z2Mass':
         outString = outString + '\n          ' + 'Z1Mass: ' + str(getattr(row, getVar2(objSorted[0], objSorted[1], 'Mass'))) +\
             '   Z2Mass: ' + str(getattr(row, getVar2(objSorted[2], objSorted[3], 'Mass')))
+
+    if cutName == "Combo":
+        outString = (outString + '\n          Correct combination: mZ1 = ' + str(comboTuple[0]) + ', ptSum (other lepons) = ' + \
+            str(comboTuple[1]) + ' instead of (' + str(comboTuple[2]) + ',' + str(comboTuple[3]) + ')')
+
 
     return outString
