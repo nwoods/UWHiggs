@@ -485,17 +485,10 @@ class ZZAnalyzerBase(MegaBase):
             for key, selection in self.build_zz_folder_structure().iteritems():
                 # fill all events
                 if key == "signal":
-                    if event == 38426260:
-                        print("38426260: (e1Pt,e2Pt) = (" + str(row.e1Pt) + "," + str(row.e2Pt) + ")")
-
                     if preselection(row,"Signal"):
                         # check if we already used this event
-
                         if eventkey in usedEvents["Signal"]["Preselection"]: 
                             continue
-
-                        if event == 38426260:
-                            print("38426260 will be processed!")
                         
                         self.cutmap["Signal"]["Preselection"]["Events"] += 1
                         fill_histos(histos, selection, row, event_weight(row))
@@ -514,9 +507,6 @@ class ZZAnalyzerBase(MegaBase):
                             for lept in self.objects:
                                 pt4l += getattr(row, getVar(lept, 'Pt'))
                             self.hzz_passed.append([('event', getattr(row,'evt')), ('m4l', m4l), ('mz1', mz1), ('mz2', mz2), ('pt4l', pt4l)])
-                    else:
-                        if event == 38426260:
-                            print("38426260 WILL NOT BE PROCESED")
 
                     continue
                 # fill controls
