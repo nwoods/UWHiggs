@@ -25,7 +25,7 @@ def overlap(row,*args):
     return any( map( lambda x: x < 0.1, [getattr(row,'%s_%s_DR' % (l1,l2) ) for l1 in args for l2 in args if l1 <> l2 and hasattr(row,'%s_%s_DR' % (l1,l2) )] ) )
 
 def muLooseIso(row, name):
-    return getattr(row, getVar(name,'RelPFIsoDB'))<0.4 # Cut used in H4l analysis
+    return getattr(row, getVar(name,'RelPFIsoRho'))<0.4 # Cut used in SMP ZZ analysis. May be RelPFIsoDB
 
 def muTightIso(row, name):
     return getattr(row, getVar(name,'RelPFIsoDB'))<0.2
@@ -95,15 +95,16 @@ def eSelection(row, name):
     if abs(getattr(row,getVar(name,'PVDXY'))) > 0.5: return False
     if abs(getattr(row,getVar(name,'PVDZ'))) > 1.0: return False
     if abs(getattr(row, getVar(name,'IP3DS')))>4.:     return False
+#    if getattr(row, getVar(name, 'MissingHits')) > 1: return False
     #if not eLooseIso(row, name):                     return False
     return eIDTight(row,name)
 
 def eIDTight(row, name):
     ''' Tight electron ID from AN2012-141 '''
-    eta = getattr(row, getVar(name, 'Eta'))
+    eta = getattr(row, getVar(name, 'SCEta'))
     pt = getattr(row, getVar(name, 'Pt'))
     bdt = getattr(row, getVar(name, 'MVANonTrig'))
-    if pt > 7. and pt < 10.:
+    if pt > 5. and pt < 10.:
         if abs(eta)<0.8 and bdt>0.47: return True
         if abs(eta)>0.8 and abs(eta)<1.479 and bdt>0.004: return True
         if abs(eta)>1.479 and bdt>0.295: return True
@@ -221,7 +222,7 @@ def preselectionSignal(row, channel, cutmap, comboMap, objects, passList, passDi
         return False
     cutmap["Signal"]["Preselection"]["Z1Mass"] += 1
     mz2 = getattr(row, getVar2(ossfs[2], ossfs[3], 'Mass'))
-    if mz2 < 60 or mz1 > 120: # 12 and 120 for H->ZZ->4l analysis
+    if mz2 < 60 or mz2 > 120: # 12 and 120 for H->ZZ->4l analysis
         if evPass: passDict[event].append(cut_info(row, channel, objects, "Z2Mass"))
         return False
     cutmap["Signal"]["Preselection"]["Z2Mass"] += 1
@@ -255,6 +256,12 @@ def preselectionSignal(row, channel, cutmap, comboMap, objects, passList, passDi
 #     cutmap["Signal"]["Preselection"]["InvariantMass4l"] += 1
 
     if evPass: passDict[event].append(cut_info(row, channel, objects, "BOOM"))
+    # report possible spurious events
+    # should be commented out for MC (yes, I am that lazy)
+#    else:
+#        passDict[event] = (["\nEVENT " + str(event) + " :", all_object_info(row,channel,objects)])
+#        passDict[event].append(cut_info(row, channel, objects, "UNEXPECTED"))
+
     return True
 
 def preselectionControl(row, key, channel, cutmap, objects): #comboMap, *objects):
@@ -447,29 +454,32 @@ def cut_info(row, channel, objects, cutName, comboTuple=(0.,0.,0.,0.)):
     outString = '\n      CUT: ' + cutName
     objSorted = getOSSF(row, channel, *objects)
 
-    if cutName == 'ID4l':
+    isUnex = (cutName == "UNEXPECTED")
+
+    if cutName == 'ID4l' or isUnex:
         for obj in objSorted:
             outString = outString + '\n          ' + obj + ':   SIP3D: ' + str(getattr(row,getVar(obj, 'IP3DS'))) + \
                 '   IPXY: ' + str(getattr(row, getVar(obj, 'PVDXY'))) + '   IPZ: ' + str(getattr(row, getVar(obj, 'PVDZ'))) + '   ID: '
             if obj[0] == 'e':
-                outString = outString + str(getattr(row, getVar(obj, 'MVAIDH2TauWP')))
+                outString = outString + str(getattr(row, getVar(obj, 'MVANonTrig')))
             if obj[0] == 'm':
-                outString = outString + str(getattr(row, getVar(obj, 'PFIDTight')))
+                outString = outString + "You're probably on the wrong branch"
+#                outString = outString + str(getattr(row,getVar(name, 'IsGlobal')) + getattr(row, getVar(obj, 'IsTracker')))
                 
-    if cutName == 'Isolation':
+    if cutName == 'Isolation' or isUnex:
         for obj in objSorted:
             outString = outString + '\n          ' + obj + ':   Iso: ' + str(getattr(row,getVar(obj, 'RelPFIsoDB')))
                 
         
-    if cutName == 'OSSF2':
+    if cutName == 'OSSF2' or isUnex:
         for obj in objects:
             outString = outString + '\n          ' + obj + ':   Charge: ' + str(getattr(row,getVar(obj,'Charge')))
 
-    if cutName == 'Z1Mass' or cutName == 'Z2Mass':
+    if cutName == 'Z1Mass' or cutName == 'Z2Mass' or isUnex:
         outString = outString + '\n          ' + 'Z1Mass: ' + str(getattr(row, getVar2(objSorted[0], objSorted[1], 'Mass'))) +\
             '   Z2Mass: ' + str(getattr(row, getVar2(objSorted[2], objSorted[3], 'Mass')))
 
-    if cutName == "Combo":
+    if cutName == "Combo" or isUnex:
         outString = (outString + '\n          Correct combination: mZ1 = ' + str(comboTuple[0]) + ', ptSum (other lepons) = ' + \
             str(comboTuple[1]) + ' instead of (' + str(comboTuple[2]) + ',' + str(comboTuple[3]) + ')')
 
