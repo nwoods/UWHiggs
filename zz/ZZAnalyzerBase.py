@@ -457,13 +457,17 @@ class ZZAnalyzerBase(MegaBase):
         for row in self.tree :
             ossfs = selections.getOSSF(row,channel,*self.objects)
             if len(ossfs) == 4 :
-                mz1 = getattr(row, getVar2(ossfs[0], ossfs[1], 'Mass'))
-                ptSum = getattr(row, getVar(ossfs[2], 'Pt')) + getattr(row,getVar(ossfs[3], 'Pt'))
-                evNum = getattr(row, 'evt') 
-                if evNum not in self.comboMap or \
-                        abs(zmass - self.comboMap[evNum][0]) > abs(zmass - mz1) or \
-                        abs(zmass - self.comboMap[evNum][0]) == abs(zmass - mz1) and ptSum > self.comboMap[evNum][1]:
-                    self.comboMap[evNum] = (mz1, ptSum)
+                allGood = True
+                for lep in ossfs:
+                    allGood = allGood and selections.objSelection(row, lep)
+                if allGood:
+                    mz1 = getattr(row, getVar2(ossfs[0], ossfs[1], 'Mass'))
+                    ptSum = getattr(row, getVar(ossfs[2], 'Pt')) + getattr(row,getVar(ossfs[3], 'Pt'))
+                    evNum = getattr(row, 'evt') 
+                    if evNum not in self.comboMap or \
+                            abs(zmass - self.comboMap[evNum][0]) > abs(zmass - mz1) or \
+                            abs(zmass - self.comboMap[evNum][0]) == abs(zmass - mz1) and ptSum > self.comboMap[evNum][1]:
+                        self.comboMap[evNum] = (mz1, ptSum)
 
         self.cut_flow_init()
         usedEvents = self.jsonToDict()
