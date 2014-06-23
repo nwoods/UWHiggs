@@ -25,7 +25,7 @@ def overlap(row,*args):
     return any( map( lambda x: x < 0.1, [getattr(row,'%s_%s_DR' % (l1,l2) ) for l1 in args for l2 in args if l1 <> l2 and hasattr(row,'%s_%s_DR' % (l1,l2) )] ) )
 
 def muLooseIso(row, name):
-    return getattr(row, getVar(name,'RelPFIsoRho'))<0.4 # Cut used in SMP ZZ analysis. May be RelPFIsoDB
+    return getattr(row, getVar(name,'RelPFIsoDBDefault'))<0.4 # Cut used in SMP ZZ analysis. May be RelPFIsoDB
 
 def muTightIso(row, name):
     return getattr(row, getVar(name,'RelPFIsoDB'))<0.2
