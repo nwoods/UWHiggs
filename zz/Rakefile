@@ -22,7 +22,9 @@ def get_sample_names(substring)
 end
 
 samples = Hash[
-  "signal" => get_sample_names('ZZJets'),
+  "signal_eeee" => get_sample_names('ZZTo4e'),
+  "signal_mmmm" => get_sample_names('ZZTo4mu'),
+  "signal_eemm" => get_sample_names('ZZTo2e2mu'),
   "all_bg" => Array['Zjets_M50', 'TTplusJets_madgraph', 'DYJetsToLL_M-10To50filter_8TeV-madgraph', 'GluGluToHToZZTo4L_M-125_8TeV-powheg-pythia6'] + get_sample_names('WZJets') + get_sample_names('WWJets'),
   "data_mm" => get_sample_names("data_DoubleMu"),
   "data_ee" => get_sample_names("data_DoubleElectron"),
@@ -63,13 +65,15 @@ analyzer_dependencies.each do |analyzer, deps|
   end
 end
 
-task :mmmm => get_analyzer_results("ZZAnalyzerMMMM.py", samples['all_bg'] + samples['signal'] + samples['data_mm'])
-task :eemm => get_analyzer_results("ZZAnalyzerEEMM.py", samples['all_bg'] + samples['signal'] + samples['data_mm'] + samples['data_ee'] + samples['data_em'])
-task :eeee => get_analyzer_results("ZZAnalyzerEEEE.py", samples['all_bg'] + samples['signal'] + samples['data_ee'])
-# task :eee => get_analyzer_results("ZZAnalyzerEEE.py", samples['all_bg'] + samples['signal'] + samples['data_ee'])
-# task :eem => get_analyzer_results("ZZAnalyzerEEM.py", samples['all_bg'] + samples['signal'] + samples['data_ee'])
-# task :mme => get_analyzer_results("ZZAnalyzerMME.py", samples['all_bg'] + samples['signal'] + samples['data_ee'])
-# task :mmm => get_analyzer_results("ZZAnalyzerMMM.py", samples['all_bg'] + samples['signal'] + samples['data_ee'])
+task :mmmm => get_analyzer_results("ZZAnalyzerMMMM.py", samples['all_bg'] + samples['signal_mmmm'] + samples['data_mm'])
+task :eemm => get_analyzer_results("ZZAnalyzerEEMM.py", samples['all_bg'] + samples['signal_eemm'] + samples['data_mm'] + samples['data_ee'] + samples['data_em'])
+task :eeee => get_analyzer_results("ZZAnalyzerEEEE.py", samples['all_bg'] + samples['signal_eeee'] + samples['data_ee'])
+task :mmmm_signaldata => get_analyzer_results("ZZAnalyzerMMMM.py", samples['signal_mmmm'] + samples['data_mm'])
+task :eemm_signaldata => get_analyzer_results("ZZAnalyzerEEMM.py", samples['signal_eemm'] + samples['data_mm'] + samples['data_ee'] + samples['data_em'])
+task :eeee_signaldata => get_analyzer_results("ZZAnalyzerEEEE.py", samples['signal_eeee'] + samples['data_ee'])
+task :mmmm_signalonly => get_analyzer_results("ZZAnalyzerMMMM.py", samples['signal_mmmm'])
+task :eemm_signalonly => get_analyzer_results("ZZAnalyzerEEMM.py", samples['signal_eemm'])
+task :eeee_signalonly => get_analyzer_results("ZZAnalyzerEEEE.py", samples['signal_eeee'])
 task :mmmm_dataonly => get_analyzer_results("ZZAnalyzerMMMM.py", samples['data_mm'])
 task :eemm_dataonly => get_analyzer_results("ZZAnalyzerEEMM.py", samples['data_mm'] + samples['data_ee'])
 task :eeee_dataonly => get_analyzer_results("ZZAnalyzerEEEE.py", samples['data_ee'])
@@ -83,4 +87,10 @@ task :analyzeZZ => [:mmmm, :eemm, :eeee] do #, :eee, :eem, :mme, :mmm] do
 end
 task :analyzeZZ_dataonly => [:mmmm_dataonly, :eemm_dataonly, :eeee_dataonly] do
   puts "called analyzeZZ task from local rakefile on data only"
+end
+task :analyzeZZ_signalonly => [:mmmm_signalonly, :eemm_signalonly, :eeee_signalonly] do
+  puts "called analyzeZZ task from local rakefile on signal MC only"
+end
+task :analyzeZZ_signaldata => [:mmmm_signaldata, :eemm_signaldata, :eeee_signaldata] do
+  puts "called analyzeZZ task from local rakefile on signal MC and data"
 end
