@@ -25,6 +25,6 @@ then
 fi
 
 export jobid=$jobid8
-rake analyzeZZ_signalonly
+rake analyzeZZ_signaldata
 
 #bash combine.sh
