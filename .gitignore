@@ -25,3 +25,9 @@ callgrind.out.*
 *.rej
 zz/inputs/*
 *dataStyles.py
+*.pyx
+Elec*Tree.cpp
+Mu*Tree.cpp
+Elec*Tree_setup.py
+Mu*Tree_setup.py
+*/build/*
