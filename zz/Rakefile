@@ -9,6 +9,9 @@ $period = '7TeV'
 if $jobid.include? '8TeV'
   $period = '8TeV'
 end
+if $jobid.include? '13TeV'
+  $period = '13TeV'
+end
 
 ################################################################################
 ## Sample names ################################################################
@@ -20,7 +23,6 @@ def get_sample_names(substring)
   inputs = inputs.map{|x| File.basename(x).sub(".txt", "")}
   return inputs
 end
-
 samples = Hash[
   "signal" => get_sample_names('ZZJets'),
   "all_bg" => Array['Zjets_M50', 'TTplusJets_madgraph', 'DYJetsToLL_M-10To50filter_8TeV-madgraph', 'GluGluToHToZZTo4L_M-125_8TeV-powheg-pythia6'] + get_sample_names('WZJets') + get_sample_names('WWJets'),
