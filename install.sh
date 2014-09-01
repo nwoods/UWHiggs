@@ -36,7 +36,7 @@ git fetch upstream
 if [ "$MAJOR_VERSION" -eq "7" ];
 then
     echo "Selecting recipe for 13TeV miniAOD"
-    git checkout -b miniAOD upstream/miniAOD_dev
+    git checkout -b miniAOD_UWHiggs upstream/miniAOD_dev
 elif [ "$MAJOR_VERSION" -eq "5" ];
 then
     echo "Selecting recipe for 8TeV"
